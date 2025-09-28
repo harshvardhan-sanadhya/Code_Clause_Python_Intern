@@ -2,132 +2,146 @@ import mysql.connector
 import random
 import string
 import socket
-conn=mysql.connector.connect(
+
+# Database connection
+conn = mysql.connector.connect(
     host='localhost',
     user='root',
     password='harshvardhan',
     database='shorter_py'
 )
-cursor=conn.cursor()
-while True:
-    def user_analysis(userid):
-        """Show analytics for all URLs of the logged-in user."""
-        sql = """
-            SELECT u.short_code, u.original_url, COUNT(a.id) AS total_clicks, 
-                MAX(a.clicked_at) AS last_clicked
-            FROM urls u
-            LEFT JOIN analytics a ON u.id = a.url_id
-            WHERE u.user_id = %s
-            GROUP BY u.id
-        """
-        cursor.execute(sql, (userid,))
-        results = cursor.fetchall()
+cursor = conn.cursor()
 
-        if results:
-            print("\n📊 Your URL Analytics:\n")
-            for short_code, original_url, total_clicks, last_clicked in results:
-                print(f"Short code: {short_code} | URL: {original_url}")
-                print(f"Total Clicks: {total_clicks} | Last Clicked: {last_clicked}\n")
-        else:
-            print("You haven’t added any URLs yet.")
 
-    def short_code_generator(length=6):
-        while True:
-            short_code=''.join(random.choices(string.ascii_letters + string.digits,k=length))
-            sql="select id from urls where short_code=%s"
-            cursor.execute(sql,(short_code,))
-            result=cursor.fetchone()
-            if not result:
-                return short_code   
+# ================== Functions ==================
 
-    def open_url(userid):
-        input_short=input("Enter your short code here : ")
+def user_analysis(userid):
+    """Show analytics for all URLs of the logged-in user."""
+    sql = """
+        SELECT u.short_code, u.original_url, COUNT(a.id) AS total_clicks, 
+               MAX(a.clicked_at) AS last_clicked
+        FROM urls u
+        LEFT JOIN analytics a ON u.id = a.url_id
+        WHERE u.user_id = %s
+        GROUP BY u.id
+    """
+    cursor.execute(sql, (userid,))
+    results = cursor.fetchall()
 
-        sql="select id, original_url from urls where user_id =%s and short_code = %s"
-        values=(userid,input_short)
-        cursor.execute(sql,values)
-        result=cursor.fetchone()
+    if results:
+        print("\n📊 Your URL Analytics:\n")
+        for short_code, original_url, total_clicks, last_clicked in results:
+            print(f"Short code: {short_code} | URL: {original_url}")
+            print(f"Total Clicks: {total_clicks} | Last Clicked: {last_clicked}\n")
+    else:
+        print("You haven’t added any URLs yet.")
 
-        if result:
-            url_id,original_url=result
-            print(f"your long url is this: {original_url}")
-            ip_address=socket.gethostbyname(socket.gethostname())
-            user_agent="Python-CLI"
 
-            sql_log="insert into analytics (url_id,ip_address,user_agent) values (%s,%s,%s)"
-            cursor.execute(sql_log,(url_id,ip_address,user_agent))
-            conn.commit()
+def short_code_generator(length=6):
+    """Generate a unique short code for the URL."""
+    while True:
+        short_code = ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+        sql = "SELECT id FROM urls WHERE short_code=%s"
+        cursor.execute(sql, (short_code,))
+        result = cursor.fetchone()
+        if not result:
+            return short_code
 
-            user_analysis(userid)
-        else:
-            print("No url found")
 
-    def add_url(userid):
-        original_url=input("Enter your url here : ")
-        short_code=short_code_generator()
-        sql="insert into urls (user_id,original_url,short_code) values(%s,%s,%s)"
-        values=(userid,original_url,short_code)
-        cursor.execute(sql,values)
+def open_url(userid):
+    input_short = input("Enter your short code here : ")
+
+    sql = "SELECT id, original_url FROM urls WHERE user_id =%s AND short_code = %s"
+    values = (userid, input_short)
+    cursor.execute(sql, values)
+    result = cursor.fetchone()
+
+    if result:
+        url_id, original_url = result
+        print(f"Your long URL is this: {original_url}")
+
+        ip_address = socket.gethostbyname(socket.gethostname())
+        user_agent = "Python-CLI"
+
+        sql_log = "INSERT INTO analytics (url_id,ip_address,user_agent) VALUES (%s,%s,%s)"
+        cursor.execute(sql_log, (url_id, ip_address, user_agent))
         conn.commit()
-        print(f" Your short url code is :{short_code}")
 
-    def options(userid):
-        print("Enter Your Choice Please")
-        print("Write Add  for adding the  URL")
-        print("Write Open for opening the URL")
-        option_input=input("Enter your choice here : ").strip()
-        if option_input=='add':
-            add_url(userid)
-        elif option_input=='open':
-            open_url(userid)
-        else:
-            print("Wrong Choice")
-        
+        user_analysis(userid)
+    else:
+        print("No URL found")
 
-    def signup():
-        print("Fill the information below : ")
-        usern=input("Enter your username here : " )
-        passn=input("Enter your password here : ")
-        emailn=input("Enter your email here : ")
 
-        sql="insert into users (username,email,password_hash) values (%s,%s,%s)"
-        values=(usern,emailn,passn)
-        cursor.execute(sql,values)
-        conn.commit()
-        print("User added Successfully !")
-        
+def add_url(userid):
+    original_url = input("Enter your URL here : ")
+    short_code = short_code_generator()
+    sql = "INSERT INTO urls (user_id,original_url,short_code) VALUES(%s,%s,%s)"
+    values = (userid, original_url, short_code)
+    cursor.execute(sql, values)
+    conn.commit()
+    print(f" Your short URL code is : {short_code}")
 
-        userid=cursor.lastrowid
+
+def options(userid):
+    print("Enter Your Choice Please")
+    print("Write Add  for adding the  URL")
+    print("Write Open for opening the URL")
+    option_input = input("Enter your choice here : ").strip().lower()
+    if option_input == 'add':
+        add_url(userid)
+    elif option_input == 'open':
+        open_url(userid)
+    else:
+        print("Wrong Choice")
+
+
+def signup():
+    print("Fill the information below : ")
+    usern = input("Enter your username here : ")
+    passn = input("Enter your password here : ")
+    emailn = input("Enter your email here : ")
+
+    sql = "INSERT INTO users (username,email,password_hash) VALUES (%s,%s,%s)"
+    values = (usern, emailn, passn)
+    cursor.execute(sql, values)
+    conn.commit()
+    print("User added Successfully !")
+
+    userid = cursor.lastrowid
+    options(userid)
+
+
+def signin():
+    print("Fill the information below : ")
+    useri = input("Enter your username here : ").strip()
+    passi = input("Enter your password here : ").strip()
+
+    sql = "SELECT id,password_hash FROM users WHERE username = %s"
+    values = (useri,)
+    cursor.execute(sql, values)
+    entered_pass_from_db = cursor.fetchone()
+
+    if entered_pass_from_db and passi == entered_pass_from_db[1]:
+        print("Login Successful !")
+        userid = entered_pass_from_db[0]
         options(userid)
+    else:
+        print("Wrong username or password")
 
 
-    def signin():
-        print("Fill the information below : ")
-        useri=input("Enter your username here : " ).strip()
-        passi=input("Enter your password here : ").strip()
-
-        sql="select id,password_hash from users where username = %s"
-        values=(useri,)
-        cursor.execute(sql,values)
-        entered_pass_from_db=cursor.fetchone()
-
-        if entered_pass_from_db and  passi == entered_pass_from_db[1]:
-            print("Login Successfull !")
-            userid=entered_pass_from_db[0]
-            options(userid)
-        else:
-            print("Wrong id poass")
-
-    print("\n \t\t\tWelcome to the url shortner")
+# ================== Main Loop ==================
+while True:
+    print("\n \t\t\tWelcome to the URL Shortener")
     print("Select your options")
     print("1. Sign Up")
     print("2. Sign In")
-    input_selector=input("Enter Here : ").strip()
 
+    input_selector = input("Enter Here : ").strip().lower()
 
-    if input_selector.lower() == "sign up":
+    if input_selector == "sign up" or input_selector == "1":
         signup()
-    elif input_selector.lower()=="sign in":
+    elif input_selector == "sign in" or input_selector == "2":
         signin()
     else:
-        print("wrong choice")
+        print("Wrong choice")
+
